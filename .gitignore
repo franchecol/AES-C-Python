@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Generated/encrypted images
+Imagen_encriptada_*.bmp
+Imagen_desencriptada_*.bmp
+
+# Generated plots and timing graphs
+tiempos_*.png
+
+# Log files
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
