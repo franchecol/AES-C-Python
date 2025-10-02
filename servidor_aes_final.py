@@ -40,6 +40,25 @@ def filtro_mediana(sign, ventana):
         signc.append(statistics.median(sign[inicio:fin]))
     return signc
 
+def transpose_aes_block(data):
+    """
+    Transpose a 16-byte AES block between row-major and column-major layout.
+    Converts between Python's row-major format and C's column-major format.
+    Input:  [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    Output: [0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15]
+    """
+    # Ensure we have exactly 16 elements by padding with leading zeros (for big-endian)
+    if len(data) < 16:
+        block = [0] * (16 - len(data)) + list(data)  # Pad at beginning for big-endian
+    else:
+        block = list(data[:16])
+    
+    transposed = [0] * 16
+    for row in range(4):
+        for col in range(4):
+            transposed[col * 4 + row] = block[row * 4 + col]
+    return transposed
+
 if __name__ == '__main__':
    
     HOST = '127.0.0.1'
@@ -108,18 +127,22 @@ if __name__ == '__main__':
                 inicio1=time.perf_counter() 
                 first_diff_idx = None
                 for i in range(len(data_split)):
-                    # For C decryption: convert encrypted block to byte array
-                    data_split_8_c = aes_lib.split_bits(data_split_c[i], 8)
+                    # For C decryption: convert encrypted block to byte array using to_bytes
+                    data_split_8_c = list(data_split_c[i].to_bytes(16, 'big'))
+                    # Transpose to column-major format for C library
+                    data_split_8_c_transposed = transpose_aes_block(data_split_8_c)
                     # Build ctypes buffer directly from Python list (avoid numpy)
-                    arr1 = (ctypes.c_ubyte * 16)(*data_split_8_c)
+                    arr1 = (ctypes.c_ubyte * 16)(*data_split_8_c_transposed)
                     start1 = time.time()
                     res2 = aes_c.decrypt(arr1)
                     end1 = time.time()
                     tiempo1 = end1-start1
                     time_decrypt_c.append(tiempo1)
                     
+                    # Transpose back from column-major to row-major format
+                    arr1_transposed = transpose_aes_block(list(arr1))
                     # Convert decrypted bytes to int without string conversion
-                    decrypt_c = int.from_bytes(bytearray(arr1), 'big')
+                    decrypt_c = int.from_bytes(bytearray(arr1_transposed), 'big')
                     
                     # Debug: print first few blocks
                     if i < 3:

@@ -39,6 +39,25 @@ def filtro_mediana(sign, ventana):
         signc.append(statistics.median(sign[inicio:fin]))
     return signc
 
+def transpose_aes_block(data):
+    """
+    Transpose a 16-byte AES block between row-major and column-major layout.
+    Converts between Python's row-major format and C's column-major format.
+    Input:  [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    Output: [0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15]
+    """
+    # Ensure we have exactly 16 elements by padding with leading zeros (for big-endian)
+    if len(data) < 16:
+        block = [0] * (16 - len(data)) + list(data)  # Pad at beginning for big-endian
+    else:
+        block = list(data[:16])
+    
+    transposed = [0] * 16
+    for row in range(4):
+        for col in range(4):
+            transposed[col * 4 + row] = block[row * 4 + col]
+    return transposed
+
 
 
 # llave de 16 bits
@@ -99,16 +118,21 @@ if __name__ == "__main__":
         aes_c.make_key()
 
         for i in range(len(data_split)):
-            data_split_8= aes_lib.split_bits(data_split[i],8)
+            # Convert to bytes using to_bytes (always 16 bytes, big-endian)
+            data_split_8 = list(data_split[i].to_bytes(16, 'big'))
+            # Transpose to column-major format for C library
+            data_split_8_transposed = transpose_aes_block(data_split_8)
             # Build ctypes buffer directly from Python list (avoid numpy)
-            arr = (ctypes.c_ubyte * 16)(*data_split_8)
+            arr = (ctypes.c_ubyte * 16)(*data_split_8_transposed)
             start1 = time.time()
             res1 = aes_c.encrypt(arr)
             end1 = time.time()
             tiempo1 = end1 - start1
             time_encrypt_c.append(tiempo1)
+            # Transpose back from column-major to row-major format
+            arr_transposed = transpose_aes_block(list(arr))
             # Read encrypted block bytes directly from ctypes buffer
-            encrypt_c = int.from_bytes(bytearray(arr), 'big')
+            encrypt_c = int.from_bytes(bytearray(arr_transposed), 'big')
             start2 = time.time()
             encrypted = aes_lib.encrypt(data_split[i],llave)
             end2 = time.time()
