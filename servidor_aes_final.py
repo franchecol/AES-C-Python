@@ -7,7 +7,8 @@ import ctypes
 from ctypes import *
 from PIL import Image
 import aes_lib
-aes_c = CDLL("C:\\Users\\franc\\Downloads\\AES_TA\\aes_lib.so")
+import os
+aes_c = CDLL(os.path.join(os.path.dirname(__file__), "aes_c_lib.so"))
 aes_c.make_key()
 from statistics import mean
 import matplotlib.pyplot as plt

@@ -11,7 +11,8 @@ import statistics
 from statistics import mean
 import matplotlib.pyplot as plt
 from numpy import asarray
-aes_c = CDLL("C:\\Users\\franc\\Downloads\\AES_TA\\aes_lib.so")
+import os
+aes_c = CDLL(os.path.join(os.path.dirname(__file__), "aes_c_lib.so"))
 "CLiente encripta la imagen y envía la imagen encriptada al servidor"
 aes_c.make_key()
 
