@@ -83,7 +83,7 @@ if __name__ == "__main__":
         s.sendall(len_data_split) #1
         "Tenemos un arreglo de int de datos encriptados"
         
-        # Re-initialize C library key before encryption
+        # Initialize C key once before encryption loop
         aes_c.make_key()
 
         for i in range(len(data_split)):
@@ -138,18 +138,13 @@ if __name__ == "__main__":
         print(f"longitud de bytes en C : {len(bytes_encripted_c)}")
 
            
-        "imprimimos la imagen encriptada"
+        "guardamos la imagen encriptada (raw bytes, no decodificar)"
         inicio1=time.perf_counter()
-        numpyarray = np.asarray(bytes_encripted, dtype=np.ubyte)
-        numpyarray_c = np.asarray(bytes_encripted_c, dtype=np.ubyte)
-        print(f"longitud de numpyarray {len(numpyarray)}")
-        print(f"longitud de numpyarray_c {len(numpyarray_c)}")
-        bgrImage = cv2.imdecode(numpyarray, cv2.IMREAD_COLOR)
-        bgrImage_c = cv2.imdecode(numpyarray_c, cv2.IMREAD_COLOR)
-        im = Image.fromarray(bgrImage)
-        im_c = Image.fromarray(bgrImage_c)
-        im.save("Imagen_encriptada_cliente_py.bmp")
-        im.save("Imagen_encriptada_cliente_c.bmp")       
+        # Save encrypted data directly as BMP files (header + encrypted pixel data)
+        with open("Imagen_encriptada_cliente_py.bmp", "wb") as f:
+            f.write(bytes_encripted)
+        with open("Imagen_encriptada_cliente_c.bmp", "wb") as f:
+            f.write(bytes_encripted_c)
         fin1=time.perf_counter()
         print(f"Tiempo de recibir e imprimir la imagen encriptada: \n{fin1-inicio1}")    
        

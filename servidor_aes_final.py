@@ -65,6 +65,12 @@ if __name__ == '__main__':
                 "recibimos los datos encriptados en c"
                 data3 = conn.recv(SOCK_BUFFER)#3
                 print("data3",len(data3))
+                
+                # Debug: Check if data2 and data3 are identical
+                if data2 == data3:
+                    print("✓ Python and C encrypted data match")
+                else:
+                    print(f"✗ WARNING: Encrypted data mismatch! Diff bytes: {sum(1 for a,b in zip(data2,data3) if a!=b)}")
 
                 time_decrypt_py = []
                 time_decrypt_c = []
@@ -75,9 +81,11 @@ if __name__ == '__main__':
                 image_int = int.from_bytes(data2, "big")  
                 data_split =aes_lib.split_bits(image_int,128)   
                 image_int_c = int.from_bytes(data3, "big") 
-                data_split_c = aes_lib.split_bits(image_int_c,128)          
+                data_split_c = aes_lib.split_bits(image_int_c,128)
+                
+                print(f"Number of blocks to decrypt: {len(data_split)} (Python), {len(data_split_c)} (C)")          
                 "Desencriptamos los datos recibidos"
-                # Re-initialize C library key before decryption
+                # Initialize C key once before decryption loop
                 aes_c.make_key()
                 inicio1=time.perf_counter() 
                 for i in range(len(data_split)):
@@ -90,10 +98,14 @@ if __name__ == '__main__':
                     end1 = time.time()
                     tiempo1 = end1-start1
                     time_decrypt_c.append(tiempo1)
-                    if res2 == 0: 
-                        decrypt_c = ','.join(map(str, arr1))
-
-                    decrypt_c =aes_lib.str_to_int(decrypt_c)              
+                    
+                    # Convert decrypted bytes to int
+                    decrypt_c_str = ','.join(map(str, arr1))
+                    decrypt_c = aes_lib.str_to_int(decrypt_c_str)
+                    
+                    # Debug: print first few blocks
+                    if i < 3:
+                        print(f"C decrypt block {i}: {hex(decrypt_c)}, expected: {hex(data_split_orig[i]) if 'data_split_orig' in dir() else 'N/A'}")
 
                     start2 = time.time()
                     decrypted = aes_lib.decrypt(data_split[i],llave)  
@@ -127,30 +139,13 @@ if __name__ == '__main__':
                 print(f"longitud de bytes: {len(bytes_decrypted)}")
                 print(f"longitud de bytes_c: {len(bytes_decrypted_c)}")
 
-                "imprimimos la imagen desencriptada"
+                "guardamos la imagen desencriptada (raw bytes con header BMP)"
                 inicio2=time.perf_counter()
-                numpyarray = np.asarray(bytes_decrypted, dtype=np.ubyte)
-                numpyarray_c = np.asarray(bytes_decrypted_c, dtype=np.ubyte)
-                print(f"longitud de numpyarray {len(numpyarray)}")
-                print(f"longitud de numpyarray_c {len(numpyarray_c)}")
-
-
-                imageBGR_c = cv2.imdecode(numpyarray_c, cv2.IMREAD_COLOR)
-                if imageBGR_c is None:
-                    print("Error al cargar la imagen en C")
-                imageRGB_c = cv2.cvtColor(imageBGR_c , cv2.COLOR_BGR2RGB)
-
-                imageBGR = cv2.imdecode(numpyarray, cv2.IMREAD_COLOR)
-                if imageBGR is None:
-                    print("Error al cargar la imagen en python")
-                imageRGB = cv2.cvtColor(imageBGR , cv2.COLOR_BGR2RGB)
-
-                im_c = Image.fromarray(imageRGB_c)
-                im = Image.fromarray(imageRGB)
-
-
-                im.save("Imagen_desencriptada_servidor_tux_py.bmp")  
-                im_c.save("Imagen_desencriptada_servidor_tux_c.bmp")
+                # Save decrypted data directly as BMP files (header + decrypted pixel data)
+                with open("Imagen_desencriptada_servidor_tux_py.bmp", "wb") as f:
+                    f.write(bytes_decrypted)
+                with open("Imagen_desencriptada_servidor_tux_c.bmp", "wb") as f:
+                    f.write(bytes_decrypted_c)
                 fin2=time.perf_counter()    
                 print(f"Tiempo para imprimir la imagen desencriptada: \n{fin2-inicio2}")         
                 ltb2 = (filtro_mediana(time_decrypt_py[:100],3))
