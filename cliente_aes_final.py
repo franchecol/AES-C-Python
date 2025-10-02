@@ -16,9 +16,9 @@ aes_c = CDLL(os.path.join(os.path.dirname(__file__), "aes_c_lib.so"))
 # Declare ctypes signatures explicitly to avoid ABI/FFI issues
 aes_c.make_key.restype = None
 aes_c.encrypt.argtypes = [POINTER(c_ubyte)]
-aes_c.encrypt.restype = c_ubyte
+aes_c.encrypt.restype = None
 aes_c.decrypt.argtypes = [POINTER(c_ubyte)]
-aes_c.decrypt.restype = c_ubyte
+aes_c.decrypt.restype = None
 "CLiente encripta la imagen y envía la imagen encriptada al servidor"
 aes_c.make_key()
 
@@ -68,6 +68,8 @@ if __name__ == "__main__":
         l = im.read()
         lenght_image = len(l)
         print(f"longitud de la imagen {lenght_image}")
+        # Send image length (binary, 8 bytes)
+        send_u64(s, lenght_image)
  
         # "Convertimos la imagen de formato byte a hexadecimal"        
         # hexadecimal_string = l.hex()
@@ -90,17 +92,16 @@ if __name__ == "__main__":
         data_split =aes_lib.split_bits(image_int,128)
         len_data_split = str(len(data_split)).encode("utf-8")
         "Envíamos la cantidad de bloques de 128 bits que se encriptarán de la imagen"            
-        send_u32(s, len(data_split)) #1 (binary, robust)
+        send_u32(s, len(data_split)) #1
         "Tenemos un arreglo de int de datos encriptados"
         
         # Initialize C key once before encryption loop
         aes_c.make_key()
 
         for i in range(len(data_split)):
-            
             data_split_8= aes_lib.split_bits(data_split[i],8)
-            vectorx = np.asarray(data_split_8).astype('int32')
-            arr = (ctypes.c_ubyte * len(vectorx))(*vectorx)
+            # Build ctypes buffer directly from Python list (avoid numpy)
+            arr = (ctypes.c_ubyte * 16)(*data_split_8)
             start1 = time.time()
             res1 = aes_c.encrypt(arr)
             end1 = time.time()
@@ -132,8 +133,7 @@ if __name__ == "__main__":
         print(f"Tiempo para enviar datos encriptados: \n{fin-inicio}")
 
         "enviamos la informacion del header"
-
-        
+        # Header is fixed 54 bytes for BMP; send it directly
         s.sendall(header_bits) #4
        
         index = range(len(data_split))

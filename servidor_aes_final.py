@@ -12,9 +12,9 @@ aes_c = CDLL(os.path.join(os.path.dirname(__file__), "aes_c_lib.so"))
 # Declare ctypes signatures explicitly to avoid ABI/FFI issues
 aes_c.make_key.restype = None
 aes_c.encrypt.argtypes = [POINTER(c_ubyte)]
-aes_c.encrypt.restype = c_ubyte
+aes_c.encrypt.restype = None
 aes_c.decrypt.argtypes = [POINTER(c_ubyte)]
-aes_c.decrypt.restype = c_ubyte
+aes_c.decrypt.restype = None
 aes_c.make_key()
 from statistics import mean
 import matplotlib.pyplot as plt
@@ -74,13 +74,14 @@ if __name__ == '__main__':
                 
                 "recibimos los datos encriptados en python"
                 inicio=time.perf_counter()
-                data2 = conn.recv(SOCK_BUFFER)#2
+                encrypted_bytes_len = int(len_encrypted) * 16
+                data2 = recv_exact(encrypted_bytes_len) #2
                 fin=time.perf_counter()
                 print(f"Tiempo para recibir los datos encriptados: \n {fin-inicio}")
                 print("data2",len(data2))
                 
                 "recibimos los datos encriptados en c"
-                data3 = conn.recv(SOCK_BUFFER)#3
+                data3 = recv_exact(encrypted_bytes_len)#3
                 print("data3",len(data3))
                 
                 # Debug: Check if data2 and data3 are identical
@@ -105,6 +106,7 @@ if __name__ == '__main__':
                 # Initialize C key once before decryption loop
                 aes_c.make_key()
                 inicio1=time.perf_counter() 
+                first_diff_idx = None
                 for i in range(len(data_split)):
                     # For C decryption: convert encrypted block to byte array
                     data_split_8_c = aes_lib.split_bits(data_split_c[i], 8)
@@ -123,6 +125,11 @@ if __name__ == '__main__':
                     if i < 3:
                         print(f"C decrypt block {i}: {hex(decrypt_c)}, expected: {hex(data_split_orig[i]) if 'data_split_orig' in dir() else 'N/A'}")
 
+                    # Cross-check C-decrypted block with Python reference of the same C-encrypted block
+                    py_ref_from_c = aes_lib.decrypt(data_split_c[i],llave)
+                    if py_ref_from_c != decrypt_c and first_diff_idx is None:
+                        first_diff_idx = i
+                        print(f"First mismatch at block {i}")
                     start2 = time.time()
                     decrypted = aes_lib.decrypt(data_split[i],llave)  
                     end2 = time.time()
@@ -131,6 +138,10 @@ if __name__ == '__main__':
                     tot_decrypted.append((decrypted))          
                     tot_decrypted_c.append((decrypt_c))      
                 fin1=time.perf_counter()
+                if first_diff_idx is None:
+                    print("C decrypt matches Python reference for all blocks")
+                else:
+                    print(f"C decrypt mismatch starts at block {first_diff_idx}")
                 print(f"Tiempo para desencriptar los datos recibidos: \n{fin1-inicio1} "  )
               
                 " arreglo de bytes de datos desencriptados"
@@ -144,7 +155,7 @@ if __name__ == '__main__':
                 
                 "recibimos los datos de los headers en bits"
                 
-                data4 = conn.recv(SOCK_BUFFER)#4
+                data4 = recv_exact(54)#4
                 header_bits = data4 
                 index = range(len(data_split))
                 "join header con datos desencriptados"

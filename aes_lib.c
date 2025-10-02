@@ -80,10 +80,10 @@
 
   unsigned char xtime(unsigned char x)
   {
-    return (x & 0x80) ? ((x << 1) ^ 0x1b) : (x << 1);
+    return (x & 0x80) ? (unsigned char)(((x << 1) ^ 0x1b) & 0xFF) : (unsigned char)((x << 1) & 0xFF);
   }
 
-  int Rcon[] = {
+  unsigned char Rcon[] = {
         0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40,
       0x80, 0x1B, 0x36, 0x6C, 0xD8, 0xAB, 0x4D, 0x9A,
       0x2F, 0x5E, 0xBC, 0x63, 0xC6, 0x97, 0x35, 0x6A,
@@ -324,6 +324,13 @@
     // int round  = 0
     // Copy the input Plaintext to state array
 
+  // Ensure state is clean for each block
+  for (i = 0; i < 4; ++i) {
+    for (j = 0; j < 4; ++j) {
+      state[i][j] = 0;
+    }
+  }
+
     for (i = 0; i <4; i++)
     {
       for(j = 0; j<4; j++)
@@ -395,6 +402,13 @@
   {
     int i,j;
     
+  // Ensure state is clean for each block
+  for (i = 0; i < 4; ++i) {
+    for (j = 0; j < 4; ++j) {
+      state[i][j] = 0;
+    }
+  }
+
     // Copy the input ciphertext to state array
     for (i = 0; i < 4; i++)
     {
