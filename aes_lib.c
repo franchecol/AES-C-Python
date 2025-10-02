@@ -391,9 +391,19 @@
     // return arrChar;
   }
   // desencriptacion con todas las llaves
-  char *decrypt(BYTE out[16], int out_size)
+  BYTE decrypt(BYTE out[16])
   {
-    int i,j;  
+    int i,j;
+    
+    // Copy the input ciphertext to state array
+    for (i = 0; i < 4; i++)
+    {
+      for(j = 0; j < 4; j++)
+      {
+        state[j][i] = out[i*4 + j];
+      }
+    }
+    
     add_round_key(10);
     inv_shift_rows();
     inv_sub_bytes();
@@ -420,26 +430,8 @@
     //   printf("%02x", out[i]);
     // }
     // printf("\n");
-    for(i = 0; i<16; i++)
-      {
-        out[i] = out[i];
-      }
+    
     return 0;
-
-
-
-    
-    int n = out_size;
-    
-    char *arrChar;
-    arrChar = (char *) malloc (sizeof(char) * (n+1));
-
-    // converting integer array to char array
-    for(int i=0;i<n;++i)
-      arrChar[i] = out[i] + '0';		
-    // adding '\0' at the end of character array
-    arrChar[n] = '\0';
-    return arrChar;
   }
 
 

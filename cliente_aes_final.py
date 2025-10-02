@@ -83,6 +83,8 @@ if __name__ == "__main__":
         s.sendall(len_data_split) #1
         "Tenemos un arreglo de int de datos encriptados"
         
+        # Re-initialize C library key before encryption
+        aes_c.make_key()
 
         for i in range(len(data_split)):
             
@@ -117,8 +119,8 @@ if __name__ == "__main__":
         fin=time.perf_counter()
         
         "enviamos datos encriptados en c"
-        # s.sendall(image_encrypted_bits_c) #3
-        # print(f"Tiempo para enviar datos encriptados: \n{fin-inicio}")
+        s.sendall(image_encrypted_bits_c) #3
+        print(f"Tiempo para enviar datos encriptados: \n{fin-inicio}")
 
         "enviamos la informacion del header"
 

@@ -62,9 +62,9 @@ if __name__ == '__main__':
                 print(f"Tiempo para recibir los datos encriptados: \n {fin-inicio}")
                 print("data2",len(data2))
                 
-                # "recibimos los datos encriptados en c"
-                # data3 = conn.recv(SOCK_BUFFER)#3
-                # print("data3",len(data3))
+                "recibimos los datos encriptados en c"
+                data3 = conn.recv(SOCK_BUFFER)#3
+                print("data3",len(data3))
 
                 time_decrypt_py = []
                 time_decrypt_c = []
@@ -74,12 +74,16 @@ if __name__ == '__main__':
                 "split into 128 bits blocks"
                 image_int = int.from_bytes(data2, "big")  
                 data_split =aes_lib.split_bits(image_int,128)   
-                image_int_c = int.from_bytes(data2, "big") 
+                image_int_c = int.from_bytes(data3, "big") 
                 data_split_c = aes_lib.split_bits(image_int_c,128)          
                 "Desencriptamos los datos recibidos"
+                # Re-initialize C library key before decryption
+                aes_c.make_key()
                 inicio1=time.perf_counter() 
                 for i in range(len(data_split)):
-                    vectory = np.zeros((16,), dtype=int)
+                    # For C decryption: convert encrypted block to byte array
+                    data_split_8_c = aes_lib.split_bits(data_split_c[i], 8)
+                    vectory = np.asarray(data_split_8_c).astype('int32')
                     arr1 = (ctypes.c_ubyte * len(vectory))(*vectory)
                     start1 = time.time()
                     res2 = aes_c.decrypt(arr1)

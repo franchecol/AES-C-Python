@@ -239,7 +239,8 @@ def split_bits(value, n):
 def str_to_int(str):
     try:
         str_to_list = list(map(int, str.split(',')))
-        hex_array = [hex(x)[2:] for x in str_to_list]
+        # Pad hex values to 2 digits to preserve leading zeros
+        hex_array = [format(x, '02x') for x in str_to_list]
         hex_join = "".join(hex_array)
         str_to_int = int(hex_join, 16)
     except:
