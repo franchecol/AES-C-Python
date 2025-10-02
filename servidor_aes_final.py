@@ -9,6 +9,12 @@ from PIL import Image
 import aes_lib
 import os
 aes_c = CDLL(os.path.join(os.path.dirname(__file__), "aes_c_lib.so"))
+# Declare ctypes signatures explicitly to avoid ABI/FFI issues
+aes_c.make_key.restype = None
+aes_c.encrypt.argtypes = [POINTER(c_ubyte)]
+aes_c.encrypt.restype = c_ubyte
+aes_c.decrypt.argtypes = [POINTER(c_ubyte)]
+aes_c.decrypt.restype = c_ubyte
 aes_c.make_key()
 from statistics import mean
 import matplotlib.pyplot as plt
@@ -39,21 +45,32 @@ if __name__ == '__main__':
     HOST = '127.0.0.1'
     PORT = 5005
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        # Allow quick restart if a previous socket is in TIME_WAIT
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, PORT))
         s.listen()
         while n <1:
-            print("Esperando conexiones")
+            print("Esperando conexiones", flush=True)
             conn,addr = s.accept()
             with conn:
                 "recibe longitud de imagen"
-                print(f'Conectado por{addr}')
-                data0 = conn.recv(SOCK_BUFFER)#0
-                decode_data0 = int(data0.decode("utf-8"))
-                SOCK_BUFFER = decode_data0
+                print(f'Conectado por{addr}', flush=True)
+                # Robust binary framing: read 8-byte image length, then 4-byte block count
+                def recv_exact(n):
+                    b = b''
+                    while len(b) < n:
+                        chunk = conn.recv(n - len(b))
+                        if not chunk:
+                            raise ConnectionError('socket closed while receiving data')
+                        b += chunk
+                    return b
+
+                img_len_bytes = recv_exact(8)
+                SOCK_BUFFER = int.from_bytes(img_len_bytes, 'big')
 
                 "Recibimos  la cantidad de bloques de 128 bits que se encriptarán de la imagen"
-                data1 = conn.recv(SOCK_BUFFER)#1
-                len_encrypted = data1
+                data1 = recv_exact(4) #1
+                len_encrypted = int.from_bytes(data1, 'big')
                 
                 "recibimos los datos encriptados en python"
                 inicio=time.perf_counter()
@@ -91,17 +108,16 @@ if __name__ == '__main__':
                 for i in range(len(data_split)):
                     # For C decryption: convert encrypted block to byte array
                     data_split_8_c = aes_lib.split_bits(data_split_c[i], 8)
-                    vectory = np.asarray(data_split_8_c).astype('int32')
-                    arr1 = (ctypes.c_ubyte * len(vectory))(*vectory)
+                    # Build ctypes buffer directly from Python list (avoid numpy)
+                    arr1 = (ctypes.c_ubyte * 16)(*data_split_8_c)
                     start1 = time.time()
                     res2 = aes_c.decrypt(arr1)
                     end1 = time.time()
                     tiempo1 = end1-start1
                     time_decrypt_c.append(tiempo1)
                     
-                    # Convert decrypted bytes to int
-                    decrypt_c_str = ','.join(map(str, arr1))
-                    decrypt_c = aes_lib.str_to_int(decrypt_c_str)
+                    # Convert decrypted bytes to int without string conversion
+                    decrypt_c = int.from_bytes(bytearray(arr1), 'big')
                     
                     # Debug: print first few blocks
                     if i < 3:

@@ -13,8 +13,21 @@ import matplotlib.pyplot as plt
 from numpy import asarray
 import os
 aes_c = CDLL(os.path.join(os.path.dirname(__file__), "aes_c_lib.so"))
+# Declare ctypes signatures explicitly to avoid ABI/FFI issues
+aes_c.make_key.restype = None
+aes_c.encrypt.argtypes = [POINTER(c_ubyte)]
+aes_c.encrypt.restype = c_ubyte
+aes_c.decrypt.argtypes = [POINTER(c_ubyte)]
+aes_c.decrypt.restype = c_ubyte
 "CLiente encripta la imagen y envía la imagen encriptada al servidor"
 aes_c.make_key()
+
+# Simple binary framing helpers
+def send_u64(sock, value:int):
+    sock.sendall(int(value).to_bytes(8, 'big'))
+
+def send_u32(sock, value:int):
+    sock.sendall(int(value).to_bytes(4, 'big'))
 
 def filtro_mediana(sign, ventana):
     signc = []
@@ -55,9 +68,6 @@ if __name__ == "__main__":
         l = im.read()
         lenght_image = len(l)
         print(f"longitud de la imagen {lenght_image}")
-        longitud_encode = str(lenght_image).encode("utf-8")
-        "enviamos longitud de la imagen sin particion"
-        s.sendall(longitud_encode) #0       
  
         # "Convertimos la imagen de formato byte a hexadecimal"        
         # hexadecimal_string = l.hex()
@@ -80,7 +90,7 @@ if __name__ == "__main__":
         data_split =aes_lib.split_bits(image_int,128)
         len_data_split = str(len(data_split)).encode("utf-8")
         "Envíamos la cantidad de bloques de 128 bits que se encriptarán de la imagen"            
-        s.sendall(len_data_split) #1
+        send_u32(s, len(data_split)) #1 (binary, robust)
         "Tenemos un arreglo de int de datos encriptados"
         
         # Initialize C key once before encryption loop
@@ -96,9 +106,8 @@ if __name__ == "__main__":
             end1 = time.time()
             tiempo1 = end1 - start1
             time_encrypt_c.append(tiempo1)
-            if res1 == 0: 
-                encrypt_c = ','.join(map(str, arr))
-            encrypt_c =aes_lib.str_to_int(encrypt_c)
+            # Read encrypted block bytes directly from ctypes buffer
+            encrypt_c = int.from_bytes(bytearray(arr), 'big')
             start2 = time.time()
             encrypted = aes_lib.encrypt(data_split[i],llave)
             end2 = time.time()
